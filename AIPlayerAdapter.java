@@ -19,6 +19,10 @@ public class AIPlayerAdapter {
         this.playerName = (playerColor == GameEngine.BLACK ? "黒(1)" : "白(2)") + " - " + new File(aiPath).getName();
     }
 
+    public String getAiPath() {
+        return aiPath;
+    }
+
     public String getPlayerName() {
         return playerName;
     }

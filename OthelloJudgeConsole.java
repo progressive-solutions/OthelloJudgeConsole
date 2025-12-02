@@ -3,7 +3,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
 
@@ -28,32 +31,39 @@ public class OthelloJudgeConsole {
     }
 
     public static void main(String[] args) {
-        String blackAIPath = null;
-        String whiteAIPath = null;
+        Scanner scanner = new Scanner(System.in);
+
+        List<AiInfo> listAiInfo = new ArrayList<AiInfo>();
 
         // 1. 引数の処理
-        if (args.length == 2) {
+        if (args.length >= 2) {
             // 使用法1: java ... OthelloJudgeConsole [黒AIパス] [白AIパス]
-            blackAIPath = args[0];
-            whiteAIPath = args[1];
+            for (int i = 0; i< args.length; i++) {
+                listAiInfo.add(new AiInfo(args[i]));
+            }
         } else if (args.length == 0) {
             // 使用法2: java ... OthelloJudgeConsole (標準入力でパス入力)
-            System.out.println("🤖 オセロAIジャッジを開始します。");
-            Scanner scanner = new Scanner(System.in);
-            System.out.print("黒番AIプログラムのファイルパス (.jar) を入力してください: ");
-            blackAIPath = scanner.nextLine().trim();
-            
-
-
-            System.out.print("白番AIプログラムのファイルパス (.jar) を入力してください: ");
-            whiteAIPath = scanner.nextLine().trim();
-            // Scannerはmainメソッド終了時に自動で閉じられることが期待されるが、明示的に閉じる
-            // ただし、System.inを閉じると他の標準入力に影響が出るため、ここでは閉じない方が安全な場合もある。
+            System.out.println("オセロAIジャッジを開始します。");
+            System.out.println("AIプログラムのファイルパス (.jar) を入力していってください。未入力でEnterするとゲーム開始します。 ");
+            System.out.print("パス or 未入力:");
+            while (true) {
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) {
+                    break;
+                }
+                listAiInfo.add(new AiInfo(input));
+            }
+            if (listAiInfo.size() < 2 ) {
+                System.out.println("[ERROR]AIプログラムは２つ以上指定してください。");
+                scanner.close();
+                return;
+            }
         } else {
             // 引数の数が不正
             System.out.println("❌ 起動エラー: 引数の数が不正です。");
             System.out.println("使用法1: java -cp classes OthelloJudgeConsole [黒AIパス] [白AIパス]");
             System.out.println("使用法2: java -cp classes OthelloJudgeConsole (引数なし)");
+            scanner.close();
             return;
         }
 
@@ -61,42 +71,88 @@ public class OthelloJudgeConsole {
 
         // 3. ゲーム開始
         try {
-            // 黒と白を入れ替えて戦う
-            for (int j = 0; j < 2; j++) {
-                if (j == 1) {
-                    String temp = blackAIPath;
-                    blackAIPath = whiteAIPath;
-                    whiteAIPath = temp;
-                }
-                File fileBlack = new File(blackAIPath);
-                File fileWhite = new File(whiteAIPath);
+            // 総当たりで戦う
+            for (int i = 0; i < listAiInfo.size(); i++) {
+                for (int j = i+1; j < listAiInfo.size(); j++) {
 
-                // ３回勝負
-                for (int i = 1; i <= 3; i++) {
-                    System.out.print("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + i + "回戦:対戦中・・・");
-                    OthelloJudgeConsole judge = new OthelloJudgeConsole(blackAIPath, whiteAIPath);
-                    Result result = judge.runGameLoop();
-                    if (result == null) {
-                        return;
+                    // 黒と白を入れ替えて戦う
+                    for (int k = 0; k < 2; k++) {
+                        int blackAi = k == 0 ? i : j;
+                        int whiteAi = k == 0 ? j : i;
+
+                        File fileBlack = listAiInfo.get(blackAi).file;
+                        File fileWhite = listAiInfo.get(whiteAi).file;
+
+                        // ３回勝負
+                        for (int l = 1; l <= 3; l++) {
+                            System.out.print("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + l + "回戦:対戦中・・・");
+                            OthelloJudgeConsole judge = new OthelloJudgeConsole(listAiInfo.get(blackAi).path, listAiInfo.get(whiteAi).path);
+                            Result result = judge.runGameLoop();
+                            if (result == null) {
+                                scanner.close();
+                                return;
+                            }
+                            System.out.print("\r");
+                            String winner = "引き分け";
+                            if (result.countBlack != result.countWhite) {
+                                if (result.countBlack > result.countWhite) {
+                                    winner = "勝者：黒：";
+                                    listAiInfo.get(blackAi).winBlack++;
+                                    listAiInfo.get(whiteAi).loseWhite++;
+                                } else if (result.countBlack < result.countWhite) {
+                                    winner = "勝者：白：";
+                                    listAiInfo.get(blackAi).loseBlack++;
+                                    listAiInfo.get(whiteAi).winWhite++;
+                                }
+                                if (result.winnerAiPah == null) {
+                                    winner += result.winnerAiPah;
+                                } else {
+                                    File fileWinner = new File(result.winnerAiPah);
+                                    winner += fileWinner.getName();
+                                }
+                            } else {
+                                listAiInfo.get(blackAi).drawBlack++;
+                                listAiInfo.get(whiteAi).drawWhiete++;
+                            }
+                            System.out.println("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + l + "回戦:試合終了：黒(" + result.countBlack + "), 白(" + result.countWhite + "), " + winner + " : " + result.reason );
+
+                            listAiInfo.get(blackAi).countStone += result.countBlack;
+                            listAiInfo.get(whiteAi).countStone += result.countWhite;
+
+                        }// l
+                    }// k
+
+                }// j
+            }// i
+
+            System.out.println("------------------------");
+            // 並び替え
+            listAiInfo.sort(new Comparator<AiInfo>() {
+               @Override
+               public int compare(AiInfo a1, AiInfo a2) {
+                    int a1Win = (a1.winBlack+a2.winWhite);
+                    int a2Win = a2.winBlack + a2.winWhite;
+                    if (a1Win == a2Win) {
+                        // 勝利数が同じ場合は負け数が少ない方が上
+                        int a1Lose = (a1.loseBlack+a2.loseWhite);
+                        int a2Lose = a2.loseBlack + a2.loseWhite;
+                        return a1Lose - a2Lose;
                     }
-                    System.out.print("\r");
-                    String winner = "引き分け";
-                    if (result.countBlack != result.countWhite) {
-                        if (result.countBlack > result.countWhite) {
-                            winner = "勝者：黒：";
-                        } else if (result.countBlack < result.countWhite) {
-                             winner = "勝者：白：";
-                        }
-                        if (result.winnerAiPah == null) {
-                            winner += result.winnerAiPah;
-                        } else {
-                            File fileWinner = new File(result.winnerAiPah);
-                            winner += fileWinner.getName();
-                        }
-                    }
-                    System.out.println("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + i + "回戦:試合終了：黒(" + result.countBlack + "), 白(" + result.countWhite + "), " + winner + ":" + result.reason );
-                }
+                    return a2Win - a1Win;
+               } 
+            });
+            for (int i = 0; i < listAiInfo.size(); i++) {
+                AiInfo ai = listAiInfo.get(i);
+                System.out.println(String.format("第%d位:勝ち:%02d(黒:%02d,白:%02d), 負け:%02d(黒:%02d,白:%02d), 引分:%02d(黒:%02d,白:%02d), 獲得石数:%03d : %s",
+                    i+1,
+                    ai.winBlack+ai.winWhite, ai.winBlack, ai.winWhite,
+                    ai.loseBlack+ai.loseWhite, ai.loseBlack, ai.loseWhite,
+                    ai.drawBlack+ai.drawWhiete, ai.drawBlack, ai.drawWhiete,
+                    ai.countStone,
+                    ai.file.getName()
+                ));
             }
+            
             
         } catch (Exception e) {
             System.err.println("致命的なエラーが発生しました: " + e.getMessage());

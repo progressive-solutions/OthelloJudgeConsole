@@ -100,7 +100,7 @@ public class GameEngine {
         return true;
     }
 
-    private boolean isLegalMove(int row, int col) {
+    public boolean isLegalMove(int row, int col) {
         if (row < 0 || row >= SIZE || col < 0 || col >= SIZE || board[row][col] != EMPTY) {
             return false;
         }

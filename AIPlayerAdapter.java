@@ -9,6 +9,7 @@ public class AIPlayerAdapter {
     private final String aiPath;
     private final int playerColor;
     private final String playerName;
+
     
     // タイムアウト時間（5秒）
     private static final int TIMEOUT_SECONDS = 5;
@@ -16,7 +17,7 @@ public class AIPlayerAdapter {
     public AIPlayerAdapter(String aiPath, int playerColor) {
         this.aiPath = aiPath;
         this.playerColor = playerColor;
-        this.playerName = (playerColor == GameEngine.BLACK ? "黒(1)" : "白(2)") + " - " + new File(aiPath).getName();
+        this.playerName = (playerColor == GameEngine.BLACK ? "黒(1)" : "白(2)") + " - "  + (this.aiPath == "あなた" ? "あなた" : new File(aiPath).getName());
     }
 
     public String getAiPath() {

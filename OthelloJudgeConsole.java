@@ -42,6 +42,9 @@ public class OthelloJudgeConsole {
             Scanner scanner = new Scanner(System.in);
             System.out.print("黒番AIプログラムのファイルパス (.jar) を入力してください: ");
             blackAIPath = scanner.nextLine().trim();
+            
+
+
             System.out.print("白番AIプログラムのファイルパス (.jar) を入力してください: ");
             whiteAIPath = scanner.nextLine().trim();
             // Scannerはmainメソッド終了時に自動で閉じられることが期待されるが、明示的に閉じる
@@ -65,9 +68,12 @@ public class OthelloJudgeConsole {
                     blackAIPath = whiteAIPath;
                     whiteAIPath = temp;
                 }
+                File fileBlack = new File(blackAIPath);
+                File fileWhite = new File(whiteAIPath);
+
                 // ３回勝負
                 for (int i = 1; i <= 3; i++) {
-                    System.out.print("黒：" + blackAIPath + " 、 白：" + whiteAIPath + " ：" + i + "回戦:対戦中・・・");
+                    System.out.print("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + i + "回戦:対戦中・・・");
                     OthelloJudgeConsole judge = new OthelloJudgeConsole(blackAIPath, whiteAIPath);
                     Result result = judge.runGameLoop();
                     if (result == null) {
@@ -75,12 +81,20 @@ public class OthelloJudgeConsole {
                     }
                     System.out.print("\r");
                     String winner = "引き分け";
-                    if (result.countBlack > result.countWhite) {
-                        winner = "勝者：黒：" + result.winnerAiPah;
-                    } else if (result.countBlack < result.countWhite) {
-                        winner = "勝者：白：" + result.winnerAiPah;
+                    if (result.countBlack != result.countWhite) {
+                        if (result.countBlack > result.countWhite) {
+                            winner = "勝者：黒：";
+                        } else if (result.countBlack < result.countWhite) {
+                             winner = "勝者：白：";
+                        }
+                        if (result.winnerAiPah == null) {
+                            winner += result.winnerAiPah;
+                        } else {
+                            File fileWinner = new File(result.winnerAiPah);
+                            winner += fileWinner.getName();
+                        }
                     }
-                    System.out.println("黒：" + blackAIPath + " 、 白：" + whiteAIPath + " ：" + i + "回戦:試合終了：黒(" + result.countBlack + "), 白(" + result.countWhite + "), " + winner );
+                    System.out.println("黒：" + fileBlack.getName() + " , 白：" + fileWhite.getName() + " ：" + i + "回戦:試合終了：黒(" + result.countBlack + "), 白(" + result.countWhite + "), " + winner + ":" + result.reason );
                 }
             }
             
@@ -163,6 +177,10 @@ public class OthelloJudgeConsole {
                     // 1. AIから着手を取得
                     move = currentAI.getMove(gameEngine.boardToString());
                     log.println(">>> " + currentAI.getPlayerName() + "が打った手: " + move);
+                    if (move.length() > "[ERROR]".length() && move.substring(0, "[ERROR]".length()-1) == "[ERROR]" ) {
+                        log.println("[ERROR] AIプログラム側でエラーが発生 " );
+                        return endGame(opponentColor, currentAI.getPlayerName() + "でエラーが発生したため、");
+                    }
 
                 } catch (TimeoutException e) {
                     // 2. タイムアウト判定
@@ -252,6 +270,7 @@ public class OthelloJudgeConsole {
         log.println(gameEngine.displayBoard());
         
         Result result =new Result();
+        result.reason = reason;
 
         result.countBlack = gameEngine.countStones(GameEngine.BLACK);
         result.countWhite = gameEngine.countStones(GameEngine.WHITE);
@@ -261,8 +280,10 @@ public class OthelloJudgeConsole {
         String winner;
         if (winnerColor == GameEngine.BLACK) {
             winner = blackAI.getPlayerName();
+            result.winnerAiPah = blackAI.getAiPath();
         } else if (winnerColor == GameEngine.WHITE) {
             winner = whiteAI.getPlayerName();
+                result.winnerAiPah = whiteAI.getAiPath();
         } else {
             // 0の場合、通常の石数判定か引き分け
             if (result.countBlack > result.countWhite) {

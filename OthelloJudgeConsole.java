@@ -1,4 +1,9 @@
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
 
@@ -9,41 +14,114 @@ public class OthelloJudgeConsole {
     private final GameEngine gameEngine = new GameEngine();
     private AIPlayerAdapter blackAI;
     private AIPlayerAdapter whiteAI;
-    private Scanner scanner;
 
-    public OthelloJudgeConsole() {
-        this.scanner = new Scanner(System.in);
+    /** 全てのゲームログ出力に使うストリーム。初期値はlogだが、すぐにファイルにリダイレクトされる。*/ 
+    private static PrintStream log = System.out;
+
+    /**
+     * ログ出力とコンソール出力のどちらも行う
+     * @param text ログ内容
+     */
+    private static void logAndConsole(String text) {
+        log.println(text);
+        System.out.println(text);
+    }
+
+    /**
+     * ログファイルを設定し、PrintStreamをセットアップする。
+     * @param blackAIPath 黒番AIのパス
+     * @param whiteAIPath 白番AIのパス
+     * @return 設定が成功したかどうか
+     */
+    private static boolean setupLogFile(String blackAIPath, String whiteAIPath) {
+        try {
+            // ファイル名から拡張子とパスを削除し、ファイル名部分だけを取得
+            // 例: /path/to/MyAi.jar -> MyAi
+            String blackName = new File(blackAIPath).getName().replace(".jar", "");
+            String whiteName = new File(whiteAIPath).getName().replace(".jar", "");
+
+            // 日付フォーマット (例: 20251202_093000)
+            String dateString = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+
+            // 最終ファイル名: 日付_黒番ファイル名_白番ファイル名.txt
+            String logFileName = dateString + "_" + blackName + "_" + whiteName + ".txt";
+
+            // PrintStreamを設定 (UTF-8エンコーディング指定)
+            // これ以降、log.println()でファイルに書き込まれる
+            log = new PrintStream(new File(logFileName), "UTF-8");
+            
+            // コンソールにはログファイル作成成功のメッセージのみを出力
+            log.println("✅ ゲームログをファイルに出力します: " + logFileName);
+            
+            return true;
+        } catch (FileNotFoundException e) {
+            log.println("❌ ログファイルの作成に失敗しました: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            log.println("❌ ファイル名解析中に予期せぬエラーが発生しました: " + e.getMessage());
+            return false;
+        }
     }
 
     public static void main(String[] args) {
-        System.out.println("--- OthelloJudgeConsole Start ---");
-        OthelloJudgeConsole judge = new OthelloJudgeConsole();
-        judge.setupAndRunGame();
-    }
-    
-    /** ユーザーからAIのパスを入力させ、ゲームを開始する */
-    private void setupAndRunGame() {
-        // 1. AIパスの入力受付
-        String blackPath = readPath("黒番(1) AIプログラムのファイルパスを入力してください (例: SampleAI.jar): ");
-        String whitePath = readPath("白番(2) AIプログラムのファイルパスを入力してください (例: SampleAI.jar): ");
-        
-        System.out.println("\n--- 対戦設定 ---");
-        System.out.println("黒番: " + blackPath);
-        System.out.println("白番: " + whitePath);
-        System.out.println("----------------\n");
+        String blackAIPath = null;
+        String whiteAIPath = null;
 
-        // 2. AIアダプターの初期化
-        blackAI = new AIPlayerAdapter(blackPath, GameEngine.BLACK);
-        whiteAI = new AIPlayerAdapter(whitePath, GameEngine.WHITE);
+        // 1. 引数の処理
+        if (args.length == 2) {
+            // 使用法1: java ... OthelloJudgeConsole [黒AIパス] [白AIパス]
+            blackAIPath = args[0];
+            whiteAIPath = args[1];
+        } else if (args.length == 0) {
+            // 使用法2: java ... OthelloJudgeConsole (標準入力でパス入力)
+            log.println("🤖 オセロAIジャッジを開始します。");
+            Scanner scanner = new Scanner(System.in);
+            log.print("黒番AIプログラムのファイルパス (.jar) を入力してください: ");
+            blackAIPath = scanner.nextLine().trim();
+            log.print("白番AIプログラムのファイルパス (.jar) を入力してください: ");
+            whiteAIPath = scanner.nextLine().trim();
+            // Scannerはmainメソッド終了時に自動で閉じられることが期待されるが、明示的に閉じる
+            // ただし、System.inを閉じると他の標準入力に影響が出るため、ここでは閉じない方が安全な場合もある。
+        } else {
+            // 引数の数が不正
+            log.println("❌ 起動エラー: 引数の数が不正です。");
+            log.println("使用法1: java -cp classes OthelloJudgeConsole [黒AIパス] [白AIパス]");
+            log.println("使用法2: java -cp classes OthelloJudgeConsole (引数なし)");
+            return;
+        }
+
+        // 2. ログファイルの設定とリダイレクト
+        if (!setupLogFile(blackAIPath, whiteAIPath)) {
+            return;
+        }
+
+        // ログストリームにヘッダーを出力 (ファイルへの書き込み開始)
+        logAndConsole("==================================================");
+        logAndConsole("========== Othello AI Judge Console ==============");
+        logAndConsole("==================================================");
+        logAndConsole("黒番 AI: " + blackAIPath);
+        logAndConsole("白番 AI: " + whiteAIPath);
+        logAndConsole("開始日時: " + new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date()));
+        logAndConsole("--------------------------------------------------");
+        System.out.println("対戦中・・・");
+        
 
         // 3. ゲーム開始
-        runGameLoop();
+        try {
+            OthelloJudgeConsole judge = new OthelloJudgeConsole(blackAIPath, whiteAIPath);
+            judge.runGameLoop();
+        } catch (Exception e) {
+            log.println("致命的なエラーが発生しました: " + e.getMessage());
+            e.printStackTrace(log); // スタックトレースをファイルに出力
+        } finally {
+            log.close(); // ログファイルを閉じる
+        }
     }
     
-    /** ファイルパスを読み込む */
-    private String readPath(String prompt) {
-        System.out.print(prompt);
-        return scanner.nextLine().trim();
+    public OthelloJudgeConsole(String blackPath, String whitePath) {
+        // AIアダプターの初期化
+        blackAI = new AIPlayerAdapter(blackPath, GameEngine.BLACK);
+        whiteAI = new AIPlayerAdapter(whitePath, GameEngine.WHITE);
     }
 
     /** メインのゲームループ */
@@ -55,20 +133,20 @@ public class OthelloJudgeConsole {
             AIPlayerAdapter currentAI = (gameEngine.getCurrentPlayer() == GameEngine.BLACK) ? blackAI : whiteAI;
             int opponentColor = (gameEngine.getCurrentPlayer() == GameEngine.BLACK) ? GameEngine.WHITE : GameEngine.BLACK;
             
-            System.out.println("------------------------------------");
-            System.out.println("手番: " + currentAI.getPlayerName());
-            System.out.println("------------------------------------");
+            log.println("------------------------------------");
+            log.println("手番: " + currentAI.getPlayerName());
+            log.println("------------------------------------");
 
             // 【手番AIへ要求を出す前に盤面を表示】
-            System.out.println("現在の盤面:");
-            System.out.println(gameEngine.displayBoard()); // GameEngineが持つ複数行表示メソッド
+            log.println("現在の盤面:");
+            log.println(gameEngine.displayBoard()); // GameEngineが持つ複数行表示メソッド
             
             // AIプログラムへ渡すプロトコル用の1行文字列を表示 (デバッグ用)
-            System.out.println("--- AIへの入力 (プロトコル文字列) ---");
+            log.println("--- AIへの入力 (プロトコル文字列) ---");
             String boardStringForAI = gameEngine.boardToString();
-            System.out.println("COLOR " + currentAI.getPlayerColor());
-            System.out.println("MOVE BOARD:" + boardStringForAI);
-            System.out.println("------------------------------------");
+            log.println("COLOR " + currentAI.getPlayerColor());
+            log.println("MOVE BOARD:" + boardStringForAI);
+            log.println("------------------------------------");
             
             boolean hasLegalMove = gameEngine.hasLegalMove();
             String move = null;
@@ -76,16 +154,16 @@ public class OthelloJudgeConsole {
             try {
                 // 1. AIから着手を取得
                 move = currentAI.getMove(gameEngine.boardToString());
-                System.out.println(">>> " + currentAI.getPlayerName() + "が打った手: " + move);
+                log.println(">>> " + currentAI.getPlayerName() + "が打った手: " + move);
 
             } catch (TimeoutException e) {
                 // 2. タイムアウト判定
-                System.err.println("[ERROR] タイムアウト発生: " + e.getMessage());
+                log.println("[ERROR] タイムアウト発生: " + e.getMessage());
                 endGame(opponentColor, currentAI.getPlayerName() + "が5秒以内に応答しなかったため、");
                 return;
             } catch (IOException e) {
                 // 3. 通信エラーなど
-                System.err.println("[ERROR] AI実行エラー: " + e.getMessage());
+                log.println("[ERROR] AI実行エラー: " + e.getMessage());
                 endGame(opponentColor, currentAI.getPlayerName() + "の実行中にエラーが発生したため、");
                 return;
             }
@@ -116,11 +194,11 @@ public class OthelloJudgeConsole {
     private boolean handlePass(boolean hasLegalMove, AIPlayerAdapter currentAI, int opponentColor) {
         if (hasLegalMove) {
             // 合法手があるのにパスは無効手
-            System.err.println("[ERROR] 無効手: 合法手があるにも関わらずパスしました。");
+            log.println("[ERROR] 無効手: 合法手があるにも関わらずパスしました。");
             endGame(opponentColor, currentAI.getPlayerName() + "が無効手（不必要なパス）を打ったため、");
             return false;
         } else {
-            System.out.println("（合法手がないためパスしました）");
+            log.println("（合法手がないためパスしました）");
             // パス後に相手にも合法手がないかチェック
             gameEngine.switchPlayer(); // 一時的に相手に手番を渡す
             if (!gameEngine.hasLegalMove()) {
@@ -136,32 +214,32 @@ public class OthelloJudgeConsole {
     private boolean handleStonePlacement(String move, boolean hasLegalMove, AIPlayerAdapter currentAI, int opponentColor) {
         if (!gameEngine.applyMove(move)) {
             // 不正な座標、または合法手ではない
-            System.err.println("[ERROR] 無効手: 座標 " + move + " は合法手ではありません。");
+            log.println("[ERROR] 無効手: 座標 " + move + " は合法手ではありません。");
             endGame(opponentColor, currentAI.getPlayerName() + "が無効手（不正な位置への着手）を打ったため、");
             return false;
         } else if (!hasLegalMove) {
             // パスしなければならない局面で着手した場合も無効手
-            System.err.println("[ERROR] 無効手: パスしなければならない局面で着手しました。");
+            log.println("[ERROR] 無効手: パスしなければならない局面で着手しました。");
             endGame(opponentColor, currentAI.getPlayerName() + "が無効手（本来パスすべき局面での着手）を打ったため、");
             return false;
         } else {
             // 合法な着手
-            System.out.println("[SUCCESS] " + currentAI.getPlayerName() + "の着手 (" + move + ") を適用しました。");
-            System.out.println(gameEngine.displayBoard()); // 更新後の盤面表示
+            log.println("[SUCCESS] " + currentAI.getPlayerName() + "の着手 (" + move + ") を適用しました。");
+            log.println(gameEngine.displayBoard()); // 更新後の盤面表示
             return true;
         }
     }
 
     /** ゲーム終了処理 */
     private void endGame(int winnerColor, String reason) {
-        System.out.println("\n====================================");
-        System.out.println("GAME OVER - " + reason);
-        System.out.println(gameEngine.displayBoard());
+        logAndConsole("\n====================================");
+        logAndConsole("GAME OVER - " + reason);
+        logAndConsole(gameEngine.displayBoard());
         
         int blackCount = gameEngine.countStones(GameEngine.BLACK);
         int whiteCount = gameEngine.countStones(GameEngine.WHITE);
         
-        System.out.println("最終結果: 黒(" + blackCount + ") vs 白(" + whiteCount + ")");
+        logAndConsole("最終結果: 黒(" + blackCount + ") vs 白(" + whiteCount + ")");
         
         String winner;
         if (winnerColor == GameEngine.BLACK) {
@@ -179,7 +257,7 @@ public class OthelloJudgeConsole {
             }
         }
         
-        System.out.println("勝者: " + winner);
-        System.out.println("====================================\n");
+        logAndConsole("勝者: " + winner);
+        logAndConsole("====================================\n");
     }
 }

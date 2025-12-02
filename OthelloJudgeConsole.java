@@ -155,16 +155,6 @@ public class OthelloJudgeConsole {
                 log.println("手番: " + currentAI.getPlayerName());
                 log.println("------------------------------------");
 
-                // 【手番AIへ要求を出す前に盤面を表示】
-                log.println("現在の盤面:");
-                log.println(gameEngine.displayBoard()); // GameEngineが持つ複数行表示メソッド
-                
-                // AIプログラムへ渡すプロトコル用の1行文字列を表示 (デバッグ用)
-                log.println("--- AIへの入力 (プロトコル文字列) ---");
-                String boardStringForAI = gameEngine.boardToString();
-                log.println("COLOR " + currentAI.getPlayerColor());
-                log.println("MOVE BOARD:" + boardStringForAI);
-                log.println("------------------------------------");
                 
                 boolean hasLegalMove = gameEngine.hasLegalMove();
                 String move = null;
@@ -250,6 +240,7 @@ public class OthelloJudgeConsole {
             // 合法な着手
             log.println("[SUCCESS] " + currentAI.getPlayerName() + "の着手 (" + move + ") を適用しました。");
             log.println(gameEngine.displayBoard()); // 更新後の盤面表示
+            log.println("MOVE BOARD:" +  gameEngine.boardToString());
             return null;
         }
     }

@@ -35,8 +35,7 @@
 
     ```bash
     mkdir -p classes
-    javac -d classes *.java
-    jar cvfm OthelloJudgeConsole.jar Manifest.txt -C classes .
+    javac -d classes -source 21 -target 21 *.java;    jar cvfm bin/OthelloJudgeConsole.jar Manifest.txt -C classes .
     ```
 
 2.  **ジャッジの起動**
